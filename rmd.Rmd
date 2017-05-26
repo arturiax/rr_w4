@@ -1,0 +1,14 @@
+---
+title: "21th century serious weather events consequences in USA"
+author: "Arturo Garcia"
+date: "26/5/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsis
+Using the data from the [NOAA's National Centers for Environmental Information (NCEI)](https://www.ncdc.noaa.gov/) we are going to analyze which weather events have had more impact, in terms of fatalities and property damage, in USA during the 21th century (from January 2001 to November 2011).   
+The different weather events (more than 900) are going to be clasiffied in 6 categories: Cold weather (Snow, Ice, Hail, ...), 
