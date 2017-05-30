@@ -7,8 +7,99 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
 ## Synopsis
-Using the data from the [NOAA's National Centers for Environmental Information (NCEI)](https://www.ncdc.noaa.gov/) we are going to analyze which weather events have had more impact, in terms of fatalities and property damage, in USA during the 21th century (from January 2001 to November 2011).   
-The different weather events (more than 900) are going to be clasiffied in 6 categories: Cold weather (Snow, Ice, Hail, ...), 
+Using the data from the [NOAA's National Centers for Environmental Information (NCEI)](https://www.ncdc.noaa.gov/) we analyzed which weather events have had more impact, in terms of fatalities and property damage, in USA during the 21th century (from January 2001 to November 2011).   
+The different registered weather events (more than 90) were clasiffied in 7 categories: **Cold weather** (Snow, ice, hail, ...), **Rain and Floods**, **Hot weather** (Wildfires, draught, high temperatures, ...), **Coastal** (Tide, Surf, ...), **Wind** (Hurricane, tornado, ..) and **Others** (Fog, smoke, lightning, ...).   
+Total and average fatalities and costs were reported for each category across USA. We repeat the analysis grouping by State.  
+
+## Data Preparation
+Libraries:
+```{r}
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+```
+
+
+
+We downloaded the dataset from internet.
+```{r, cache =TRUE}
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2","data.bz2")
+weather <- read.csv("data.bz2", stringsAsFactors = FALSE)
+```
+We subset the dataset to keep only the 21th centrury records:
+
+```{r}
+weather21 <- 
+  mutate(weather, date = mdy_hms(BGN_DATE)) %>% 
+  select(date, COUNTYNAME, STATE, EVTYPE, FATALITIES, PROPDMG, PROPDMGEXP) %>% 
+  filter(date>=dmy("01012001"), FATALITIES > 0 | PROPDMG > 0)
+
+```
+
+```{r}
+
+weather21 <- weather21 %>% 
+  mutate(category = case_when(
+          grepl("COLD|SNOW|ICE|AVALANCHE|BLIZZARD|WINTER|HAIL|FREEZ|CHILL", .$EVTYPE) ~ "Cold", 
+          grepl("COASTAL|TIDE|SURF|SEAS|RIP|TSUNAMI", .$EVTYPE) ~ "Coastal",
+          grepl("WIND|STORM|TORNADO|HURRICANE|MICROBURST|TROPICAL|WATERSPOUT", .$EVTYPE) ~ "Wind",
+          grepl("FLOOD|RAIN|PRECIPITATION|FLD|SEICHE|WATER", .$EVTYPE) ~ "Rain and floods",
+          grepl("HEAT|FIRE|DROUGHT", .$EVTYPE) ~ "Heat",
+          TRUE ~ "Other"),
+        fact = case_when(
+          tolower(.$PROPDMGEXP) == 'h' ~  100,
+          tolower(.$PROPDMGEXP) == 'k' ~ 1000,
+          tolower(.$PROPDMGEXP) == 'm' ~  1e6,
+          tolower(.$PROPDMGEXP) == 'b' ~  1e9,
+          TRUE ~  1), 
+        damage = (PROPDMG * fact)/1e9,
+        region = tolower(state.name[match(weather21$STATE, state.abb)]) ) %>% 
+   select(-fact)
+    
+    
+```
+
+```{r}
+weather21 %>% 
+  group_by(category) %>% 
+  summarise(sum(damage), sum(FATALITIES))
+```
+
+
+
+```{r}
+states <-map_data("state")
+
+pre <- weather21 %>% 
+  group_by(category, region) %>% 
+  summarise(dami = sum(damage), fat = sum(FATALITIES)) %>% 
+  gather(type, value, -c(1,2)) %>% 
+  group_by(region, type) %>% 
+  arrange(desc(value)) %>% 
+  top_n(1) %>% 
+  inner_join(states) %>% 
+  arrange(group)
+
+```
+
+```{r}
+ggplot(pre) + geom_polygon(aes(x=long, y=lat, group=group, fill=category), color="white", size=.1) + coord_map() + facet_grid(type~.)
+```
+
+
+
+```{r}
+lista <- weather21 %>% 
+  arrange(category) %>% 
+  group_by(category) %>% 
+  select(EVTYPE) %>% 
+  unique() 
+  
+```
+
+  
